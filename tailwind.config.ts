@@ -14,6 +14,14 @@ const config: Config = {
       },
     },
   },
+  safelist: [
+    "border-green-500/40",
+    "bg-green-500/10",
+    "border-yellow-500/40",
+    "bg-yellow-500/10",
+    "border-red-500/40",
+    "bg-red-500/10",
+  ],
   plugins: [],
 };
 export default config;
