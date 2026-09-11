@@ -34,8 +34,11 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## Environment Variables (optional, for Supabase integration)
 
+Copy `.env.example` to `.env.local` and set the anon key from the
+[Go-travel Supabase project](https://supabase.com/dashboard/project/qeabwuqdulihjagboicw/settings/api-keys):
+
 ```
-NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
+NEXT_PUBLIC_SUPABASE_URL=https://qeabwuqdulihjagboicw.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 ```
 
