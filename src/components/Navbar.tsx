@@ -17,7 +17,7 @@ export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { user, loading, supabase } = useUser();
+  const { user, displayName, loading, supabase } = useUser();
 
   const handleSignOut = async () => {
     setMobileOpen(false);
@@ -25,11 +25,6 @@ export default function Navbar() {
     router.push("/");
     router.refresh();
   };
-
-  const displayName =
-    (typeof user?.user_metadata?.name === "string" && user.user_metadata.name) ||
-    user?.email ||
-    "";
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-black/30 backdrop-blur-xl border-b border-white/5">
