@@ -1,20 +1,35 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Globe, User, Search, Menu, X } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { Globe, LayoutDashboard, LogOut, Search, Menu, X } from "lucide-react";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useUser } from "@/lib/supabase/use-user";
 
 const navLinks = [
   { href: "/", label: "Explore", icon: Globe },
   { href: "/search", label: "Search", icon: Search },
-  { href: "/profile", label: "Profile", icon: User },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
 ];
 
 export default function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { user, loading, supabase } = useUser();
+
+  const handleSignOut = async () => {
+    setMobileOpen(false);
+    await supabase?.auth.signOut();
+    router.push("/");
+    router.refresh();
+  };
+
+  const displayName =
+    (typeof user?.user_metadata?.name === "string" && user.user_metadata.name) ||
+    user?.email ||
+    "";
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-black/30 backdrop-blur-xl border-b border-white/5">
@@ -51,18 +66,38 @@ export default function Navbar() {
           </div>
 
           <div className="hidden md:flex items-center gap-3">
-            <Link
-              href="/auth/sign-in"
-              className="text-sm text-gray-400 hover:text-white transition-colors px-4 py-2"
-            >
-              Sign In
-            </Link>
-            <Link
-              href="/auth/sign-up"
-              className="text-sm bg-gradient-to-r from-cyan-500 to-blue-600 text-white px-5 py-2 rounded-lg font-medium hover:from-cyan-400 hover:to-blue-500 transition-all shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/40"
-            >
-              Join GO
-            </Link>
+            {loading ? null : user ? (
+              <>
+                <Link
+                  href="/profile/edit"
+                  className="text-sm text-gray-300 hover:text-white transition-colors px-3 py-2 max-w-[180px] truncate"
+                >
+                  {displayName}
+                </Link>
+                <button
+                  onClick={handleSignOut}
+                  className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors px-4 py-2 rounded-lg hover:bg-white/5"
+                >
+                  <LogOut size={16} />
+                  Sign Out
+                </button>
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/auth/sign-in"
+                  className="text-sm text-gray-400 hover:text-white transition-colors px-4 py-2"
+                >
+                  Sign In
+                </Link>
+                <Link
+                  href="/auth/sign-up"
+                  className="text-sm bg-gradient-to-r from-cyan-500 to-blue-600 text-white px-5 py-2 rounded-lg font-medium hover:from-cyan-400 hover:to-blue-500 transition-all shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/40"
+                >
+                  Join GO
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile hamburger */}
@@ -104,20 +139,41 @@ export default function Navbar() {
                 );
               })}
               <hr className="border-white/5 my-2" />
-              <Link
-                href="/auth/sign-in"
-                onClick={() => setMobileOpen(false)}
-                className="block px-4 py-3 text-sm text-gray-400 hover:text-white"
-              >
-                Sign In
-              </Link>
-              <Link
-                href="/auth/sign-up"
-                onClick={() => setMobileOpen(false)}
-                className="block px-4 py-3 text-sm bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-lg text-center font-medium"
-              >
-                Join GO
-              </Link>
+              {user ? (
+                <>
+                  <Link
+                    href="/profile/edit"
+                    onClick={() => setMobileOpen(false)}
+                    className="block px-4 py-3 text-sm text-gray-300 hover:text-white truncate"
+                  >
+                    {displayName}
+                  </Link>
+                  <button
+                    onClick={handleSignOut}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-400 hover:text-white"
+                  >
+                    <LogOut size={18} />
+                    Sign Out
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link
+                    href="/auth/sign-in"
+                    onClick={() => setMobileOpen(false)}
+                    className="block px-4 py-3 text-sm text-gray-400 hover:text-white"
+                  >
+                    Sign In
+                  </Link>
+                  <Link
+                    href="/auth/sign-up"
+                    onClick={() => setMobileOpen(false)}
+                    className="block px-4 py-3 text-sm bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-lg text-center font-medium"
+                  >
+                    Join GO
+                  </Link>
+                </>
+              )}
             </div>
           </motion.div>
         )}

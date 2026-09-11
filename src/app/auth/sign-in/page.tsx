@@ -1,13 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Mail, Lock, ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
+import { createClient } from "@/lib/supabase/client";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 export default function SignInPage() {
+  return (
+    <Suspense>
+      <SignInForm />
+    </Suspense>
+  );
+}
+
+function SignInForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const nextPath = searchParams.get("next") || "/dashboard";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -18,11 +30,25 @@ export default function SignInPage() {
     setLoading(true);
     setError("");
 
-    // Demo mode: accept any credentials
-    setTimeout(() => {
+    if (!isSupabaseConfigured) {
+      router.push(nextPath);
+      return;
+    }
+
+    const supabase = createClient();
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (signInError) {
+      setError(signInError.message);
       setLoading(false);
-      router.push("/dashboard");
-    }, 1000);
+      return;
+    }
+
+    router.push(nextPath);
+    router.refresh();
   };
 
   return (
@@ -117,9 +143,11 @@ export default function SignInPage() {
           </div>
         </div>
 
-        <p className="text-center text-xs text-gray-600 mt-6">
-          Demo mode: any credentials will work
-        </p>
+        {!isSupabaseConfigured && (
+          <p className="text-center text-xs text-gray-600 mt-6">
+            Demo mode: any credentials will work
+          </p>
+        )}
       </motion.div>
     </div>
   );

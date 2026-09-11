@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useUser } from "@/lib/supabase/use-user";
 import { ALL_INTERESTS } from "@/lib/interests";
 import { countries } from "@/lib/countries";
 import InterestBadge from "@/components/InterestBadge";
@@ -26,6 +27,33 @@ export default function EditProfilePage() {
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [hostingStatus, setHostingStatus] = useState<string>("available");
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const { user, loading, supabase } = useUser();
+
+  useEffect(() => {
+    if (!supabase || !user) return;
+
+    supabase
+      .from("profiles")
+      .select("name, age, bio, country_code, city, interests, hosting_status")
+      .eq("id", user.id)
+      .maybeSingle()
+      .then(({ data, error: loadError }) => {
+        if (loadError) {
+          setError(loadError.message);
+          return;
+        }
+        if (!data) return;
+        setName(data.name ?? "");
+        setAge(data.age != null ? String(data.age) : "");
+        setBio(data.bio ?? "");
+        setCountry(data.country_code ?? "");
+        setCity(data.city ?? "");
+        setSelectedInterests(data.interests ?? []);
+        setHostingStatus(data.hosting_status ?? "available");
+      });
+  }, [supabase, user]);
 
   const toggleInterest = (id: string) => {
     setSelectedInterests((prev) =>
@@ -33,12 +61,34 @@ export default function EditProfilePage() {
     );
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    setError("");
+
+    if (supabase && user) {
+      setSaving(true);
+      const { error: saveError } = await supabase.from("profiles").upsert({
+        id: user.id,
+        name,
+        age: age ? Number(age) : null,
+        bio,
+        country_code: country || null,
+        city: city || null,
+        interests: selectedInterests,
+        hosting_status: hostingStatus,
+      });
+      setSaving(false);
+
+      if (saveError) {
+        setError(saveError.message);
+        return;
+      }
+    }
+
     setSaved(true);
     setTimeout(() => {
       setSaved(false);
       router.push("/dashboard");
-    }, 2000);
+    }, 1500);
   };
 
   const interestsByCategory = {
@@ -67,6 +117,12 @@ export default function EditProfilePage() {
       </div>
 
       <div className="space-y-8">
+        {error && (
+          <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3 text-sm text-red-400">
+            {error}
+          </div>
+        )}
+
         {/* Avatar */}
         <section className="bg-white/5 border border-white/10 rounded-2xl p-6">
           <div className="flex items-center gap-6">
@@ -252,10 +308,11 @@ export default function EditProfilePage() {
         {/* Save button */}
         <button
           onClick={handleSave}
-          className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-500 to-blue-600 text-white py-4 rounded-xl font-semibold text-lg hover:from-cyan-400 hover:to-blue-500 transition-all shadow-lg shadow-cyan-500/20"
+          disabled={saving || loading}
+          className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-500 to-blue-600 text-white py-4 rounded-xl font-semibold text-lg hover:from-cyan-400 hover:to-blue-500 transition-all shadow-lg shadow-cyan-500/20 disabled:opacity-50"
         >
           <Save size={20} />
-          Save Profile
+          {saving ? "Saving..." : "Save Profile"}
         </button>
       </div>
 
