@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { Star, Camera, X, Send, Trash2, ImageOff } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useUser } from "@/lib/supabase/use-user";
+import DatePicker from "@/components/DatePicker";
 
 interface Review {
   id: string;
@@ -211,10 +212,9 @@ export default function StayReviews({
       <AnimatePresence>
         {showForm && (
           <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="overflow-hidden"
+            initial={{ opacity: 0, height: 0, overflow: "hidden" }}
+            animate={{ opacity: 1, height: "auto", overflow: "visible" }}
+            exit={{ opacity: 0, height: 0, overflow: "hidden" }}
           >
             <div className="bg-white/5 border border-white/10 rounded-xl p-5 mb-6 space-y-4">
               {error && (
@@ -230,12 +230,7 @@ export default function StayReviews({
                 </div>
                 <div>
                   <label className="text-sm text-gray-400 block mb-1.5">When did you stay?</label>
-                  <input
-                    type="month"
-                    value={stayedAt.slice(0, 7)}
-                    onChange={(e) => setStayedAt(e.target.value ? `${e.target.value}-01` : "")}
-                    className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-cyan-500/50"
-                  />
+                  <DatePicker value={stayedAt} onChange={setStayedAt} />
                 </div>
               </div>
 
@@ -332,8 +327,9 @@ export default function StayReviews({
                       </p>
                       <p className="text-xs text-gray-500">
                         {review.stayed_at
-                          ? `Stayed ${new Date(review.stayed_at).toLocaleDateString("en-US", {
-                              month: "long",
+                          ? `Stayed ${new Date(`${review.stayed_at}T00:00:00`).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
                               year: "numeric",
                             })}`
                           : `Posted ${new Date(review.created_at).toLocaleDateString("en-US", {
