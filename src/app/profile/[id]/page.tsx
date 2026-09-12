@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { getProfileById } from "@/lib/mock-data";
 import InterestBadge from "@/components/InterestBadge";
+import StayReviews from "@/components/StayReviews";
 import Image from "next/image";
 import {
   ArrowLeft,
@@ -196,6 +197,8 @@ export default function ProfilePage() {
             </span>
           </div>
         </section>
+
+        <StayReviews hostId={profileId} hostName={profile.name} />
       </div>
 
       {/* Stay Request Modal */}
