@@ -1,10 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useUser } from "@/lib/supabase/use-user";
 import { ALL_INTERESTS } from "@/lib/interests";
 import { countries } from "@/lib/countries";
 import InterestBadge from "@/components/InterestBadge";
+import SocialIcon from "@/components/SocialIcon";
+import { SOCIAL_PLATFORMS, normalizeHandle, type Socials } from "@/lib/socials";
 import {
   ArrowLeft,
   Camera,
@@ -13,6 +16,7 @@ import {
   MapPin,
   FileText,
   CheckCircle,
+  Share2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -25,7 +29,36 @@ export default function EditProfilePage() {
   const [city, setCity] = useState("");
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [hostingStatus, setHostingStatus] = useState<string>("available");
+  const [socials, setSocials] = useState<Socials>({});
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const { user, loading, supabase } = useUser();
+
+  useEffect(() => {
+    if (!supabase || !user) return;
+
+    supabase
+      .from("profiles")
+      .select("name, age, bio, country_code, city, interests, hosting_status, socials")
+      .eq("id", user.id)
+      .maybeSingle()
+      .then(({ data, error: loadError }) => {
+        if (loadError) {
+          setError(loadError.message);
+          return;
+        }
+        if (!data) return;
+        setName(data.name ?? "");
+        setAge(data.age != null ? String(data.age) : "");
+        setBio(data.bio ?? "");
+        setCountry(data.country_code ?? "");
+        setCity(data.city ?? "");
+        setSelectedInterests(data.interests ?? []);
+        setHostingStatus(data.hosting_status ?? "available");
+        setSocials((data.socials as Socials) ?? {});
+      });
+  }, [supabase, user]);
 
   const toggleInterest = (id: string) => {
     setSelectedInterests((prev) =>
@@ -33,12 +66,40 @@ export default function EditProfilePage() {
     );
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    setError("");
+
+    if (supabase && user) {
+      setSaving(true);
+      const { error: saveError } = await supabase.from("profiles").upsert({
+        id: user.id,
+        name,
+        age: age ? Number(age) : null,
+        bio,
+        country_code: country || null,
+        city: city || null,
+        interests: selectedInterests,
+        hosting_status: hostingStatus,
+        socials: Object.fromEntries(
+          SOCIAL_PLATFORMS.flatMap((p) => {
+            const handle = normalizeHandle(socials[p.key] ?? "");
+            return handle ? [[p.key, handle]] : [];
+          })
+        ),
+      });
+      setSaving(false);
+
+      if (saveError) {
+        setError(saveError.message);
+        return;
+      }
+    }
+
     setSaved(true);
     setTimeout(() => {
       setSaved(false);
       router.push("/dashboard");
-    }, 2000);
+    }, 1500);
   };
 
   const interestsByCategory = {
@@ -67,6 +128,12 @@ export default function EditProfilePage() {
       </div>
 
       <div className="space-y-8">
+        {error && (
+          <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3 text-sm text-red-400">
+            {error}
+          </div>
+        )}
+
         {/* Avatar */}
         <section className="bg-white/5 border border-white/10 rounded-2xl p-6">
           <div className="flex items-center gap-6">
@@ -172,6 +239,42 @@ export default function EditProfilePage() {
           </p>
         </section>
 
+        {/* Social media */}
+        <section className="bg-white/5 border border-white/10 rounded-2xl p-6">
+          <h2 className="text-lg font-semibold text-white mb-1 flex items-center gap-2">
+            <Share2 size={18} />
+            Social Media
+          </h2>
+          <p className="text-gray-400 text-sm mb-5">
+            Let travelers get to know you. Paste a handle or profile link.
+          </p>
+          <div className="grid sm:grid-cols-2 gap-4">
+            {SOCIAL_PLATFORMS.map((p) => (
+              <div key={p.key}>
+                <label className="text-sm text-gray-400 block mb-1.5">{p.label}</label>
+                <div className="flex items-center bg-white/5 border border-white/10 rounded-lg focus-within:border-cyan-500/50">
+                  <span className="pl-3 pr-2 text-gray-500">
+                    <SocialIcon platform={p.key} size={16} />
+                  </span>
+                  <span className="text-gray-600 text-sm">@</span>
+                  <input
+                    type="text"
+                    value={socials[p.key] ?? ""}
+                    onChange={(e) =>
+                      setSocials((prev) => ({ ...prev, [p.key]: e.target.value }))
+                    }
+                    onBlur={(e) =>
+                      setSocials((prev) => ({ ...prev, [p.key]: normalizeHandle(e.target.value) }))
+                    }
+                    placeholder={p.placeholder}
+                    className="flex-1 bg-transparent px-1.5 py-2.5 text-white text-sm focus:outline-none placeholder:text-gray-600"
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
         {/* Hosting Status */}
         <section className="bg-white/5 border border-white/10 rounded-2xl p-6">
           <h2 className="text-lg font-semibold text-white mb-5">Hosting Status</h2>
@@ -252,10 +355,11 @@ export default function EditProfilePage() {
         {/* Save button */}
         <button
           onClick={handleSave}
-          className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-500 to-blue-600 text-white py-4 rounded-xl font-semibold text-lg hover:from-cyan-400 hover:to-blue-500 transition-all shadow-lg shadow-cyan-500/20"
+          disabled={saving || loading}
+          className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-500 to-blue-600 text-white py-4 rounded-xl font-semibold text-lg hover:from-cyan-400 hover:to-blue-500 transition-all shadow-lg shadow-cyan-500/20 disabled:opacity-50"
         >
           <Save size={20} />
-          Save Profile
+          {saving ? "Saving..." : "Save Profile"}
         </button>
       </div>
 

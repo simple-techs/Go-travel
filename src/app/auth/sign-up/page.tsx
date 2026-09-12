@@ -3,8 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Mail, Lock, User, ArrowRight, Globe } from "lucide-react";
+import { Mail, Lock, User, ArrowRight, Globe, MailCheck } from "lucide-react";
 import { motion } from "framer-motion";
+import { createClient } from "@/lib/supabase/client";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -13,18 +15,68 @@ export default function SignUpPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [confirmationSent, setConfirmationSent] = useState(false);
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
 
-    // Demo mode: auto-redirect
-    setTimeout(() => {
-      setLoading(false);
+    if (!isSupabaseConfigured) {
       router.push("/profile/edit");
-    }, 1000);
+      return;
+    }
+
+    const supabase = createClient();
+    const { data, error: signUpError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { name },
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+
+    if (signUpError) {
+      setError(signUpError.message);
+      setLoading(false);
+      return;
+    }
+
+    if (!data.session) {
+      setConfirmationSent(true);
+      setLoading(false);
+      return;
+    }
+
+    router.push("/profile/edit");
+    router.refresh();
   };
+
+  if (confirmationSent) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="w-full max-w-md bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-8 text-center"
+        >
+          <MailCheck size={40} className="mx-auto text-cyan-400 mb-4" />
+          <h2 className="text-2xl font-bold text-white mb-2">Check your email</h2>
+          <p className="text-gray-400 text-sm">
+            We sent a confirmation link to <span className="text-white">{email}</span>.
+            Click it to activate your account, then sign in.
+          </p>
+          <Link
+            href="/auth/sign-in"
+            className="inline-block mt-6 text-cyan-400 hover:text-cyan-300 font-medium text-sm"
+          >
+            Go to sign in
+          </Link>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4">

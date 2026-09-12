@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useMemo, useState, useCallback } from "react";
+import { useRef, useMemo, useState, useCallback, useEffect } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls, Sphere, Html } from "@react-three/drei";
 import * as THREE from "three";
@@ -38,6 +38,53 @@ function GlobeAtmosphere() {
         `}
       />
     </Sphere>
+  );
+}
+
+type Ring = [number, number][];
+interface BorderFeature {
+  geometry:
+    | { type: "Polygon"; coordinates: Ring[] }
+    | { type: "MultiPolygon"; coordinates: Ring[][] };
+}
+
+function CountryOutlines({ radius }: { radius: number }) {
+  const [geometry, setGeometry] = useState<THREE.BufferGeometry | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/world-borders.json")
+      .then((res) => res.json())
+      .then((data: { features: BorderFeature[] }) => {
+        if (cancelled) return;
+        const points: number[] = [];
+        const addRing = (ring: Ring) => {
+          for (let i = 0; i < ring.length - 1; i++) {
+            const a = latLngToVector3(ring[i][1], ring[i][0], radius);
+            const b = latLngToVector3(ring[i + 1][1], ring[i + 1][0], radius);
+            points.push(a.x, a.y, a.z, b.x, b.y, b.z);
+          }
+        };
+        for (const { geometry: g } of data.features) {
+          if (g.type === "Polygon") g.coordinates.forEach(addRing);
+          else g.coordinates.forEach((poly) => poly.forEach(addRing));
+        }
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute("position", new THREE.Float32BufferAttribute(points, 3));
+        setGeometry(geo);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [radius]);
+
+  if (!geometry) return null;
+
+  return (
+    <lineSegments geometry={geometry}>
+      <lineBasicMaterial color="#38bdf8" transparent opacity={0.55} />
+    </lineSegments>
   );
 }
 
@@ -137,6 +184,8 @@ function GlobeMesh({ onSelectCountry }: { onSelectCountry: (country: Country) =>
           opacity={0.95}
         />
       </Sphere>
+
+      <CountryOutlines radius={2.008} />
 
       {/* Grid lines */}
       {Array.from({ length: 12 }, (_, i) => {

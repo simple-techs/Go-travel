@@ -1,3 +1,5 @@
+import type { Socials } from "./socials";
+
 export interface UserProfile {
   id: string;
   name: string;
@@ -11,6 +13,7 @@ export interface UserProfile {
   languages: string[];
   hosting_status: "available" | "maybe" | "unavailable";
   created_at: string;
+  socials?: Socials;
 }
 
 export interface Interest {
