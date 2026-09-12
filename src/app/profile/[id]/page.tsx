@@ -1,9 +1,16 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getProfileById } from "@/lib/mock-data";
+import { getInterestById } from "@/lib/interests";
+import { getCountryByCode } from "@/lib/countries";
+import { createClient } from "@/lib/supabase/client";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
+import type { UserProfile } from "@/lib/types";
+import type { Socials } from "@/lib/socials";
 import InterestBadge from "@/components/InterestBadge";
+import SocialLinks from "@/components/SocialLinks";
 import StayReviews from "@/components/StayReviews";
 import Image from "next/image";
 import {
@@ -19,14 +26,62 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export default function ProfilePage() {
   const params = useParams();
   const router = useRouter();
   const profileId = params.id as string;
-  const profile = useMemo(() => getProfileById(profileId), [profileId]);
+  const mockProfile = useMemo(() => getProfileById(profileId), [profileId]);
+  const isUuid = UUID_RE.test(profileId);
+  const [dbProfile, setDbProfile] = useState<UserProfile | null>(null);
+  const [dbLoading, setDbLoading] = useState(isUuid && isSupabaseConfigured);
   const [showRequestForm, setShowRequestForm] = useState(false);
   const [requestSent, setRequestSent] = useState(false);
   const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    if (!isUuid || !isSupabaseConfigured) return;
+    createClient()
+      .from("profiles")
+      .select(
+        "id, name, age, avatar_url, bio, country_code, city, interests, languages, hosting_status, created_at, socials"
+      )
+      .eq("id", profileId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          setDbProfile({
+            id: data.id,
+            name: data.name || "Traveler",
+            age: data.age ?? 0,
+            avatar_url: data.avatar_url ?? "",
+            bio: data.bio ?? "",
+            country_code: data.country_code ?? "",
+            country: getCountryByCode(data.country_code ?? "")?.name ?? "",
+            city: data.city ?? "",
+            interests: (data.interests as string[])
+              .map(getInterestById)
+              .filter((i): i is NonNullable<typeof i> => Boolean(i)),
+            languages: data.languages ?? [],
+            hosting_status: data.hosting_status,
+            created_at: data.created_at,
+            socials: (data.socials as Socials) ?? {},
+          });
+        }
+        setDbLoading(false);
+      });
+  }, [profileId, isUuid]);
+
+  const profile = mockProfile ?? dbProfile;
+
+  if (dbLoading && !profile) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-cyan-500/30 border-t-cyan-400 rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   if (!profile) {
     return (
@@ -84,14 +139,18 @@ export default function ProfilePage() {
           {/* Profile header */}
           <div className="flex flex-col sm:flex-row items-start gap-6">
             <div className="relative">
-              <div className="w-28 h-28 rounded-2xl overflow-hidden ring-2 ring-white/10">
-                <Image
-                  src={profile.avatar_url}
-                  alt={profile.name}
-                  width={112}
-                  height={112}
-                  className="object-cover w-full h-full"
-                />
+              <div className="w-28 h-28 rounded-2xl overflow-hidden ring-2 ring-white/10 bg-gradient-to-br from-cyan-500/40 to-blue-600/40 flex items-center justify-center text-white text-4xl font-bold">
+                {profile.avatar_url ? (
+                  <Image
+                    src={profile.avatar_url}
+                    alt={profile.name}
+                    width={112}
+                    height={112}
+                    className="object-cover w-full h-full"
+                  />
+                ) : (
+                  profile.name.charAt(0).toUpperCase()
+                )}
               </div>
               <div
                 className={`absolute -bottom-2 -right-2 w-6 h-6 rounded-full border-3 border-gray-900 ${statusColors[profile.hosting_status]}`}
@@ -153,6 +212,11 @@ export default function ProfilePage() {
         <section className="bg-white/5 border border-white/10 rounded-2xl p-6">
           <h2 className="text-lg font-semibold text-white mb-3">About</h2>
           <p className="text-gray-300 leading-relaxed">{profile.bio}</p>
+          {profile.socials && Object.keys(profile.socials).length > 0 && (
+            <div className="mt-5 pt-5 border-t border-white/5">
+              <SocialLinks socials={profile.socials} />
+            </div>
+          )}
         </section>
 
         {/* Interests */}

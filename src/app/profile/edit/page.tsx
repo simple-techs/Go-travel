@@ -6,6 +6,8 @@ import { useUser } from "@/lib/supabase/use-user";
 import { ALL_INTERESTS } from "@/lib/interests";
 import { countries } from "@/lib/countries";
 import InterestBadge from "@/components/InterestBadge";
+import SocialIcon from "@/components/SocialIcon";
+import { SOCIAL_PLATFORMS, normalizeHandle, type Socials } from "@/lib/socials";
 import {
   ArrowLeft,
   Camera,
@@ -14,6 +16,7 @@ import {
   MapPin,
   FileText,
   CheckCircle,
+  Share2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -26,6 +29,7 @@ export default function EditProfilePage() {
   const [city, setCity] = useState("");
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [hostingStatus, setHostingStatus] = useState<string>("available");
+  const [socials, setSocials] = useState<Socials>({});
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -36,7 +40,7 @@ export default function EditProfilePage() {
 
     supabase
       .from("profiles")
-      .select("name, age, bio, country_code, city, interests, hosting_status")
+      .select("name, age, bio, country_code, city, interests, hosting_status, socials")
       .eq("id", user.id)
       .maybeSingle()
       .then(({ data, error: loadError }) => {
@@ -52,6 +56,7 @@ export default function EditProfilePage() {
         setCity(data.city ?? "");
         setSelectedInterests(data.interests ?? []);
         setHostingStatus(data.hosting_status ?? "available");
+        setSocials((data.socials as Socials) ?? {});
       });
   }, [supabase, user]);
 
@@ -75,6 +80,12 @@ export default function EditProfilePage() {
         city: city || null,
         interests: selectedInterests,
         hosting_status: hostingStatus,
+        socials: Object.fromEntries(
+          SOCIAL_PLATFORMS.flatMap((p) => {
+            const handle = normalizeHandle(socials[p.key] ?? "");
+            return handle ? [[p.key, handle]] : [];
+          })
+        ),
       });
       setSaving(false);
 
@@ -226,6 +237,42 @@ export default function EditProfilePage() {
           <p className="text-xs text-gray-600 mt-2">
             {bio.length}/500 characters
           </p>
+        </section>
+
+        {/* Social media */}
+        <section className="bg-white/5 border border-white/10 rounded-2xl p-6">
+          <h2 className="text-lg font-semibold text-white mb-1 flex items-center gap-2">
+            <Share2 size={18} />
+            Social Media
+          </h2>
+          <p className="text-gray-400 text-sm mb-5">
+            Let travelers get to know you. Paste a handle or profile link.
+          </p>
+          <div className="grid sm:grid-cols-2 gap-4">
+            {SOCIAL_PLATFORMS.map((p) => (
+              <div key={p.key}>
+                <label className="text-sm text-gray-400 block mb-1.5">{p.label}</label>
+                <div className="flex items-center bg-white/5 border border-white/10 rounded-lg focus-within:border-cyan-500/50">
+                  <span className="pl-3 pr-2 text-gray-500">
+                    <SocialIcon platform={p.key} size={16} />
+                  </span>
+                  <span className="text-gray-600 text-sm">@</span>
+                  <input
+                    type="text"
+                    value={socials[p.key] ?? ""}
+                    onChange={(e) =>
+                      setSocials((prev) => ({ ...prev, [p.key]: e.target.value }))
+                    }
+                    onBlur={(e) =>
+                      setSocials((prev) => ({ ...prev, [p.key]: normalizeHandle(e.target.value) }))
+                    }
+                    placeholder={p.placeholder}
+                    className="flex-1 bg-transparent px-1.5 py-2.5 text-white text-sm focus:outline-none placeholder:text-gray-600"
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
         </section>
 
         {/* Hosting Status */}
