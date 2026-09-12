@@ -23,7 +23,7 @@ function SignInForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(searchParams.get("error") || "");
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
