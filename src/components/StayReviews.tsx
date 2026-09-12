@@ -83,7 +83,9 @@ export default function StayReviews({
       )
       .eq("host_id", hostId)
       .order("created_at", { ascending: false });
-    if (!loadError && data) {
+    if (loadError) {
+      setError(`Could not load reviews: ${loadError.message}`);
+    } else if (data) {
       setReviews(
         data.map((r) => ({
           ...r,
@@ -209,6 +211,12 @@ export default function StayReviews({
           ))}
       </div>
 
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-2.5 text-sm text-red-400 mb-4">
+          {error}
+        </div>
+      )}
+
       <AnimatePresence>
         {showForm && (
           <motion.div
@@ -217,12 +225,6 @@ export default function StayReviews({
             exit={{ opacity: 0, height: 0, overflow: "hidden" }}
           >
             <div className="bg-white/5 border border-white/10 rounded-xl p-5 mb-6 space-y-4">
-              {error && (
-                <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-2.5 text-sm text-red-400">
-                  {error}
-                </div>
-              )}
-
               <div className="flex items-center justify-between gap-4 flex-wrap">
                 <div>
                   <label className="text-sm text-gray-400 block mb-1.5">Your rating</label>
